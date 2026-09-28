@@ -1,0 +1,11 @@
+# PyInstaller 결과물 / 작업 폴더
+build/
+dist/
+*.spec
+
+# Python 캐시
+__pycache__/
+*.pyc
+
+# 아이콘 미리보기 (tools/make_icon.py 가 생성, 빌드에는 불필요)
+assets/icon_preview.png
