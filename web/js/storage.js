@@ -21,8 +21,13 @@
   // 저장 지연 시간(ms). 입력할 때마다 저장하지 않고 마지막 변경 후 이 시간이 지나면 한 번 저장.
   var SAVE_DEBOUNCE_MS = 400;
 
-  // localStorage 에 저장할 때 쓰는 키 이름
-  var LS_KEY = 'ddingTycoonCalc.state';
+  // localStorage 에 저장할 때 쓰는 키 이름 (v1.1.0 에서 앱 이름이 '띵 에이전트'로 바뀌며 새 키로 변경)
+  var LS_KEY = 'ddingAgent.state';
+
+  // 옛 이름(띵타이쿤 가격 계산기, v1.0.0) 시절의 localStorage 키.
+  // 새 키에 저장된 값이 없을 때만 이 키에서 읽어 오고, 다음 저장부터는 새 키(LS_KEY)에 저장됨.
+  // 옛 키의 값은 지우지 않고 그대로 둠 (혹시 모를 데이터 유실 방지)
+  var LEGACY_LS_KEY = 'ddingTycoonCalc.state';
 
   var backend = null;      // 'pywebview' | 'localStorage' | 'none'
   var timer = null;
@@ -55,8 +60,18 @@
     });
   }
 
+  /** localStorage 에서 상태 읽기. 새 키가 비어 있으면 옛 키(LEGACY_LS_KEY)에서 읽어 새 키로 옮겨 저장. */
   function lsGet() {
-    try { return root.localStorage ? root.localStorage.getItem(LS_KEY) : null; } catch (e) { return null; }
+    try {
+      if (!root.localStorage) return null;
+      var v = root.localStorage.getItem(LS_KEY);
+      if (v !== null) return v;
+      var old = root.localStorage.getItem(LEGACY_LS_KEY);
+      if (old !== null) {
+        try { root.localStorage.setItem(LS_KEY, old); } catch (e2) { /* 새 키 저장 실패해도 읽은 값은 그대로 사용 */ }
+      }
+      return old;
+    } catch (e) { return null; }
   }
   function lsSet(json) {
     try { if (root.localStorage) root.localStorage.setItem(LS_KEY, json); return true; } catch (e) { return false; }
@@ -129,6 +144,7 @@
     PYWEBVIEW_WAIT_MS: PYWEBVIEW_WAIT_MS,
     SAVE_DEBOUNCE_MS: SAVE_DEBOUNCE_MS,
     LS_KEY: LS_KEY,
+    LEGACY_LS_KEY: LEGACY_LS_KEY,
     init: init,
     save: save,
     flush: flush,

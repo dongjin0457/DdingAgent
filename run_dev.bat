@@ -1,6 +1,6 @@
 @echo off
 rem ==========================================================================
-rem  DdingTycoonCalc - run in development mode (no build needed)
+rem  DdingAgent - run in development mode (no build needed)
 rem  - DTC_DEBUG=1 : DevTools (F12) window opens, verbose log
 rem  - Edits in web\ are picked up on next launch (or reload with F5)
 rem  - Python: %LOCALAPPDATA%\Programs\Python\Python311\python.exe, then the

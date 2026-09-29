@@ -1,8 +1,14 @@
-# 띵타이쿤 가격 계산기
+# 띵 에이전트 (DdingAgent)
 
 ## 소개
 
-마인크래프트 서버 미니게임 **띵타이쿤**의 요리·공예품 판매가를 정리하고 계산해 주는 Windows 데스크톱 프로그램입니다.
+마인크래프트 서버 미니게임 **띵타이쿤**의 귀찮은 계산·정리를 맡기는 Windows 데스크톱 도구입니다. 주요 기능은 요리·공예품 판매가 정리와 **가격 계산**입니다.
+
+- 다운로드 페이지: [https://띵타이쿤.snrnsrk9901.com](https://xn--hi2bj71aflgdza.snrnsrk9901.com)
+- 저장소: https://github.com/dongjin0457/DdingAgent
+
+> **이름 변경 안내**: v1.1.0 부터 이름이 **"띵타이쿤 가격 계산기"** 에서 **"띵 에이전트"** 로 바뀌었습니다 (exe 이름: `DdingAgent.exe`).
+> 예전 버전에서 쓰던 데이터(`%APPDATA%\DdingTycoonCalc`)는 새 버전을 처음 실행할 때 `%APPDATA%\DdingAgent` 로 자동으로 복사됩니다. 예전 폴더는 지우지 않고 그대로 남겨 둡니다.
 
 - 가격은 직접 입력하거나, 켜 두면 **내 화면에 떠 있는 아이템 툴팁을 읽어서** 자동으로 채울 수 있습니다.
 - `web/` 폴더의 오프라인 웹 앱을 **pywebview + Microsoft Edge WebView2** 창으로 띄우며, PyInstaller 로 exe 파일 1개로 묶습니다.
@@ -37,7 +43,7 @@
 
 ### 저장되는 데이터
 
-데이터는 `%APPDATA%\DdingTycoonCalc\` 에 저장됩니다.
+데이터는 `%APPDATA%\DdingAgent\` 에 저장됩니다.
 
 | 파일/폴더 | 내용 |
 |-----------|------|
@@ -47,11 +53,12 @@
 | `webview\` | WebView2 브라우저 프로필 (캐시 등, 지워도 됨) |
 
 - "최근 인식" 목록은 메모리에만 있고 프로그램을 끄면 사라집니다.
-- 초기화하려면 프로그램을 끄고 `%APPDATA%\DdingTycoonCalc` 폴더를 지우면 됩니다.
+- 초기화하려면 프로그램을 끄고 `%APPDATA%\DdingAgent` 폴더를 지우면 됩니다.
+- 예전 이름(띵타이쿤 가격 계산기) 시절의 데이터 폴더 `%APPDATA%\DdingTycoonCalc` 가 있고 새 폴더에 `state.json` 이 없으면, 시작할 때 예전 폴더의 내용(`state.json`, `state.bak.json`, `app.log`, `webview\` 중 캐시 제외)을 새 폴더로 **복사**합니다. 복사가 끝나면 예전 폴더에 `MIGRATED_TO_DdingAgent.txt` 파일을 남겨 다시 복사하지 않습니다. 예전 폴더는 새 버전에서 잘 동작하는 것을 확인한 뒤 직접 지워도 됩니다.
 
 ## 설치 / 실행
 
-1. 이 저장소의 **Releases** 에서 `DdingTycoonCalc.exe` 를 받습니다. **파일 하나**만 있으면 되며, 설치 과정 없이 아무 폴더에 두고 실행하세요.
+1. [다운로드 페이지](https://xn--hi2bj71aflgdza.snrnsrk9901.com) 또는 이 저장소의 [**Releases**](https://github.com/dongjin0457/DdingAgent/releases/latest) 에서 `DdingAgent.exe` 를 받습니다. **파일 하나**만 있으면 되며, 설치 과정 없이 아무 폴더에 두고 실행하세요.
 2. **Microsoft Edge WebView2 Runtime** 이 필요합니다.
    - Windows 11 과 최신 Windows 10 에는 기본으로 들어 있습니다.
    - 없으면 실행 시 안내 창이 뜹니다. https://developer.microsoft.com/microsoft-edge/webview2/ 에서 "Evergreen Bootstrapper" 를 설치한 뒤 다시 실행하세요.
@@ -116,13 +123,14 @@ py -3.11 -m pip install pyinstaller pywebview numpy pillow openpyxl ^
 ### 빌드
 
 1. `build.bat` 을 더블클릭합니다.
-2. 약 1분 뒤 `dist\DdingTycoonCalc.exe` 가 만들어집니다.
+2. 약 1분 뒤 `dist\DdingAgent.exe` 가 만들어집니다.
 
 - Python 위치: 기본으로 `%LOCALAPPDATA%\Programs\Python\Python311\python.exe`(Python 3.11 사용자 설치 기본 경로)를 쓰고, 없으면 `py -3.11` 런처로 찾습니다. 다른 Python 을 쓰려면 환경변수 `DTC_PYTHON` 에 python.exe 전체 경로를 지정하세요.
-- PyInstaller 작업 폴더는 동기화/파일 잠금 문제를 피하려고 `%TEMP%\DdingTycoonCalc_build` 에 만들어집니다.
+- PyInstaller 작업 폴더는 동기화/파일 잠금 문제를 피하려고 `%TEMP%\DdingAgent_build` 에 만들어집니다.
 - `web\` 폴더, 아이콘, `recognizer\digit_templates.json` 이 exe 안에 포함됩니다. **웹 앱을 고치면 다시 빌드해야 exe 에 반영**됩니다.
 - `assets\icon.ico` 가 없으면 `tools\make_icon.py` 로 자동 생성합니다.
 - `DTC_NO_PAUSE=1` 이면 빌드가 끝난 뒤 키 입력을 기다리지 않습니다.
+- 환경변수 이름의 `DTC_` 접두어는 예전 이름 시절 것을 호환을 위해 그대로 씁니다. 앱 실행용 환경변수(`DTC_DEBUG`, `DTC_WEB_DIR`, `DTC_DATA_DIR`)는 `DDA_` 접두어(예: `DDA_DEBUG`)로도 쓸 수 있습니다.
 
 ### 빌드 없이 실행 / 자가 진단
 
@@ -131,7 +139,7 @@ py -3.11 -m pip install pyinstaller pywebview numpy pillow openpyxl ^
 - 자가 진단 (exe 안에서 OCR 이 되는지 확인): 툴팁이 보이는 PNG 이미지를 지정하면 창 없이 판독 결과만 JSON 으로 저장하고 종료합니다.
 
 ```
-DdingTycoonCalc.exe --selftest 툴팁이미지.png --out 결과.json
+DdingAgent.exe --selftest 툴팁이미지.png --out 결과.json
 ```
 
   종료 코드 0 = 인식 성공. `build.bat` 실행 전에 `set DTC_SELFTEST_PNG=툴팁이미지.png` 를 해 두면 빌드 직후 자동으로 확인합니다 (`dist\selftest_result.json`).
@@ -160,9 +168,9 @@ py -3.11 tools/extract_xlsx.py "다른\경로\파일.xlsx"    # 다른 엑셀 �
 ## 폴더 구조
 
 ```
-DdingTycoonCalc/
-├─ main.py                  데스크톱 창 생성, JS ↔ Python API, 상태 저장
-├─ build.bat                exe 빌드 (dist\DdingTycoonCalc.exe)
+DdingAgent/
+├─ main.py                  데스크톱 창 생성, JS ↔ Python API, 상태 저장, 예전 데이터 폴더 이전
+├─ build.bat                exe 빌드 (dist\DdingAgent.exe)
 ├─ run_dev.bat              빌드 없이 실행 (개발자 도구 켜짐)
 ├─ version_info.txt         exe 속성의 버전 정보
 ├─ assets/
@@ -201,6 +209,16 @@ DdingTycoonCalc/
 - 일반 요리의 최저가/최고가는 **띵타이쿤 위키의 요리 가격표(2026-09-26 기준)** 값으로 갱신했습니다.
 - 게임 업데이트로 가격 범위가 바뀔 수 있습니다. 설정 탭에서 직접 고치거나, 자동 인식의 범위 자동 확장을 사용할 수 있습니다.
 - 이 프로그램은 띵타이쿤 서버의 공식 프로그램이 아닙니다.
+
+## 변경 내역
+
+### v1.1.0
+- 이름 변경: "띵타이쿤 가격 계산기" → **"띵 에이전트"** (exe 이름 `DdingAgent.exe`)
+- 데이터 폴더 이전: `%APPDATA%\DdingTycoonCalc` → `%APPDATA%\DdingAgent` (처음 실행할 때 자동 복사, 예전 폴더는 그대로 둠)
+- 예전 이름으로 내보낸 JSON 목록 파일도 그대로 가져올 수 있습니다.
+
+### v1.0.0
+- 첫 배포 ("띵타이쿤 가격 계산기")
 
 ## 라이선스
 

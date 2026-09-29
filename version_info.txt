@@ -3,8 +3,8 @@
 # 버전을 올릴 때는 filevers/prodvers 튜플과 FileVersion/ProductVersion 문자열을 같이 바꿀 것
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=(1, 0, 0, 0),   # 파일 버전 (숫자 4개)
-    prodvers=(1, 0, 0, 0),   # 제품 버전 (숫자 4개)
+    filevers=(1, 1, 0, 0),   # 파일 버전 (숫자 4개)
+    prodvers=(1, 1, 0, 0),   # 제품 버전 (숫자 4개)
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
@@ -17,14 +17,14 @@ VSVersionInfo(
       [
       StringTable(
         '041204b0',   # 0412 = 한국어, 04b0 = 유니코드
-        [StringStruct('CompanyName', 'DdingTycoonCalc'),
-        StringStruct('FileDescription', '띵타이쿤 가격 계산기'),
-        StringStruct('FileVersion', '1.0.0'),
-        StringStruct('InternalName', 'DdingTycoonCalc'),
+        [StringStruct('CompanyName', 'DdingAgent'),
+        StringStruct('FileDescription', '띵 에이전트'),
+        StringStruct('FileVersion', '1.1.0.0'),
+        StringStruct('InternalName', 'DdingAgent.exe'),
         StringStruct('LegalCopyright', ''),
-        StringStruct('OriginalFilename', 'DdingTycoonCalc.exe'),
-        StringStruct('ProductName', '띵타이쿤 가격 계산기'),
-        StringStruct('ProductVersion', '1.0.0')])
+        StringStruct('OriginalFilename', 'DdingAgent.exe'),
+        StringStruct('ProductName', '띵 에이전트'),
+        StringStruct('ProductVersion', '1.1.0.0')])
       ]),
     VarFileInfo([VarStruct('Translation', [1042, 1200])])
   ]

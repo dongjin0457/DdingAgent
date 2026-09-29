@@ -1,5 +1,5 @@
 /*
- * calc.js — 띵타이쿤 가격 계산기의 순수 계산 함수 모음 (DOM 사용 없음)
+ * calc.js — 띵 에이전트의 가격 계산용 순수 계산 함수 모음 (DOM 사용 없음)
  *
  * - 브라우저: <script src="js/calc.js"> 로 불러오면 window.Calc 로 접근
  * - Node: module.exports 로도 불러올 수 있음

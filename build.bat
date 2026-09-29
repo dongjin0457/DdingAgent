@@ -1,7 +1,7 @@
 @echo off
 rem ==========================================================================
-rem  DdingTycoonCalc - exe build script (double-click to run)
-rem  Output: dist\DdingTycoonCalc.exe  (single file, no console window)
+rem  DdingAgent - exe build script (double-click to run)
+rem  Output: dist\DdingAgent.exe  (single file, no console window)
 rem
 rem  NOTE: this file is intentionally ASCII-only so cmd.exe parses it safely.
 rem        Korean explanation is in README.md (build-from-source section).
@@ -36,7 +36,7 @@ if not defined DTC_PYTHON if not exist "%PY%" (
 )
 
 rem PyInstaller work/spec folder (outside the project folder)
-set "WORK=%TEMP%\DdingTycoonCalc_build"
+set "WORK=%TEMP%\DdingAgent_build"
 
 rem Web app folder to bundle
 set "WEBSRC=%ROOT%web"
@@ -76,7 +76,7 @@ if not exist "%ROOT%assets\icon.ico" (
 )
 
 echo.
-echo Building DdingTycoonCalc.exe ...
+echo Building DdingAgent.exe ...
 echo.
 
 rem --collect-submodules/--collect-binaries winrt : the winrt projection
@@ -86,7 +86,7 @@ rem --hidden-import recognizer.* : modules imported lazily at run time.
 rem --exclude-module : packages this app does not use (keeps them out of the exe).
 "%PY%" -m PyInstaller --noconfirm --clean ^
   --onefile --windowed ^
-  --name DdingTycoonCalc ^
+  --name DdingAgent ^
   --icon "%ROOT%assets\icon.ico" ^
   --version-file "%ROOT%version_info.txt" ^
   --paths "%ROOT%." ^
@@ -113,14 +113,14 @@ rem --exclude-module : packages this app does not use (keeps them out of the exe
 if errorlevel 1 goto :fail
 
 echo.
-echo [OK] Build finished: dist\DdingTycoonCalc.exe
+echo [OK] Build finished: dist\DdingAgent.exe
 
 if not defined DTC_SELFTEST_PNG goto :done
 echo.
 echo Running self-test inside the exe: "%DTC_SELFTEST_PNG%"
 if exist "%ROOT%dist\selftest_result.json" del "%ROOT%dist\selftest_result.json"
 rem start /wait: the exe is a GUI (windowed) program, so wait for it explicitly
-start "" /wait "%ROOT%dist\DdingTycoonCalc.exe" --selftest "%DTC_SELFTEST_PNG%" --out "%ROOT%dist\selftest_result.json"
+start "" /wait "%ROOT%dist\DdingAgent.exe" --selftest "%DTC_SELFTEST_PNG%" --out "%ROOT%dist\selftest_result.json"
 if errorlevel 1 (
   echo [FAILED] Self-test did not recognize the tooltip. See dist\selftest_result.json
   goto :fail

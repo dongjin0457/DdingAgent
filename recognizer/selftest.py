@@ -3,7 +3,7 @@
 자가 진단: 사용자가 지정한 PNG 이미지 한 장을 판독해서 결과를 JSON 파일로 저장
 (exe 안에서 OCR/numpy 번들이 제대로 됐는지 확인용. 명령줄에서 --selftest 를 줄 때만 실행됨)
 
-    DdingTycoonCalc.exe --selftest 툴팁이미지.png [--out 결과.json] [--items 목록.json]
+    DdingAgent.exe --selftest 툴팁이미지.png [--out 결과.json] [--items 목록.json]
 
 - 아이템 목록: --items 로 준 JSON (배열 또는 {"items": [...]}) 또는 exe 에 들어 있는 web/js/data.js
 - 결과 파일 기본 위치: PNG 와 같은 폴더의 <PNG 이름>.selftest.json (판독 결과 텍스트만 저장, 이미지는 저장하지 않음)

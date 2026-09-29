@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-띵타이쿤 가격 계산기 - 엑셀 → web/js/data.js 변환 스크립트
+띵 에이전트 - 엑셀 → web/js/data.js 변환 스크립트
 
 사용법 (프로젝트 루트에서):
     py tools/extract_xlsx.py [엑셀경로]

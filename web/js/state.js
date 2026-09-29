@@ -43,8 +43,20 @@
   // 상태 형식 버전. 구조를 바꿀 때 올리고 migrateState 에 변환 로직을 추가하세요.
   var STATE_VERSION = 2;
 
-  // 내보내기(JSON) 파일 식별자. 가져오기 시 이 값으로 앱 파일인지 확인.
-  var EXPORT_APP_ID = 'DdingTycoonCalc';
+  // 내보내기(JSON) 파일 식별자. 새로 내보내는 파일의 app 필드에 이 값이 들어감.
+  // (v1.1.0 에서 앱 이름이 '띵 에이전트'로 바뀌며 'DdingTycoonCalc' → 'DdingAgent' 로 변경)
+  var EXPORT_APP_ID = 'DdingAgent';
+
+  // 가져오기 시 "이 앱에서 내보낸 파일"로 인정하는 app 필드 값 목록.
+  // 옛 이름(띵타이쿤 가격 계산기, v1.0.0)으로 내보낸 파일도 계속 불러올 수 있도록 옛 식별자를 함께 둠.
+  // app 필드가 아예 없는 파일은 isAcceptedExportAppId 에서 따로 허용함 (예전부터 허용하던 동작 유지)
+  var ACCEPTED_IMPORT_APP_IDS = [EXPORT_APP_ID, 'DdingTycoonCalc'];
+
+  /** 가져오려는 파일의 app 필드 값이 이 앱 것인지 확인 (값이 없으면 true — 필드 없는 파일 허용) */
+  function isAcceptedExportAppId(appId) {
+    if (appId === undefined || appId === null || appId === '') return true;
+    return ACCEPTED_IMPORT_APP_IDS.indexOf(appId) !== -1;
+  }
 
   // 세트 크기 기본값 (Calc.SET_SIZE 와 동일하게 유지)
   var DEFAULT_SET_SIZE = 64;
@@ -297,6 +309,8 @@
   return {
     STATE_VERSION: STATE_VERSION,
     EXPORT_APP_ID: EXPORT_APP_ID,
+    ACCEPTED_IMPORT_APP_IDS: ACCEPTED_IMPORT_APP_IDS,
+    isAcceptedExportAppId: isAcceptedExportAppId,
     DEFAULT_SET_SIZE: DEFAULT_SET_SIZE,
     MAX_SET_SIZE: MAX_SET_SIZE,
     MAX_NAME_LEN: MAX_NAME_LEN,

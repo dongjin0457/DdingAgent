@@ -1230,10 +1230,13 @@
     return JSON.stringify(S.buildExport(master(), setSize()), null, 2);
   }
 
+  // 내보내기 파일 기본 이름 앞부분 (뒤에 _YYYYMMDD.json 이 붙음). 파일 이름이라 띄어쓰기 없이 씀
+  var EXPORT_FILE_PREFIX = '띵에이전트_목록';
+
   function exportFileName() {
     var d = new Date();
     var p = function (n) { return (n < 10 ? '0' : '') + n; };
-    return '띵타이쿤_목록_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json';
+    return EXPORT_FILE_PREFIX + '_' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json';
   }
 
   function exportJson() {
@@ -1283,7 +1286,8 @@
       alertDialog('가져오기 실패', '올바른 JSON 형식이 아닙니다.');
       return;
     }
-    if (obj && obj.app && obj.app !== S.EXPORT_APP_ID) {
+    // 새 식별자(DdingAgent)와 옛 이름 시절 식별자(DdingTycoonCalc) 모두 허용, app 필드 없는 파일도 허용
+    if (obj && !S.isAcceptedExportAppId(obj.app)) {
       alertDialog('가져오기 실패', '이 앱에서 내보낸 파일이 아닙니다.');
       return;
     }

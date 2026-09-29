@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
-띵타이쿤 가격 계산기 - 데스크톱 래퍼 (pywebview + Edge WebView2)
+띵 에이전트 (DdingAgent) - 데스크톱 래퍼 (pywebview + Edge WebView2)
+띵타이쿤의 귀찮은 계산·정리(가격 계산, 재료 정리 등)를 맡기는 도구. 예전 이름: 띵타이쿤 가격 계산기
 
 web/index.html 오프라인 웹 앱을 네이티브 창으로 띄우고,
 JS 에서 호출할 수 있는 Python API(window.pywebview.api.*)를 제공합니다.
@@ -22,14 +23,20 @@ JS 에서 쓸 수 있는 API (자세한 설명은 아래 Api 클래스의 각 �
 
 실행 방법
     개발:  run_dev.bat  (또는 python main.py)
-    배포:  build.bat 로 만든 dist\\DdingTycoonCalc.exe
-    자가 진단: DdingTycoonCalc.exe --selftest 툴팁이미지.png [--out 결과.json]
+    배포:  build.bat 로 만든 dist\\DdingAgent.exe
+    자가 진단: DdingAgent.exe --selftest 툴팁이미지.png [--out 결과.json]
               (GUI 없이 사용자가 지정한 PNG 한 장을 판독해 결과 JSON 저장 후 종료. exe 안에서 OCR 이 되는지 확인용)
 
 환경변수 (개발/테스트용, 일반 사용자는 설정할 필요 없음)
     DTC_DEBUG=1        개발자 도구(F12) 활성화 + 상세 로그
     DTC_WEB_DIR=경로    web 폴더 대신 다른 폴더의 index.html 을 띄움 (테스트 페이지용)
-    DTC_DATA_DIR=경로   state.json 저장 폴더를 바꿈 (테스트 시 실제 데이터 보호용)
+    DTC_DATA_DIR=경로   state.json 저장 폴더를 바꿈 (테스트 시 실제 데이터 보호용, 이때는 옛 폴더 이전도 안 함)
+    ※ 옛 이름 시절의 DTC_* 이름을 그대로 씀. 같은 뜻의 DDA_* 이름(DDA_DEBUG 등)도 받음 (둘 다 있으면 DTC_* 우선)
+
+데이터 폴더 이전 (v1.1.0 이름 변경)
+    시작할 때 %APPDATA%\\DdingAgent 에 state.json 이 없고 옛 폴더 %APPDATA%\\DdingTycoonCalc 가 있으면
+    옛 폴더 내용을 새 폴더로 '복사' 함 (옛 폴더는 지우지 않음). 복사가 끝나면 옛 폴더에
+    MIGRATED_TO_DdingAgent.txt 표시 파일을 남겨 다음부터는 다시 복사하지 않음. 자세한 건 migrate_legacy_data_dir 참고.
 """
 
 import ctypes
@@ -38,6 +45,7 @@ import logging
 import logging.handlers
 import os
 import queue
+import shutil
 import socket
 import sys
 import tempfile
@@ -50,12 +58,25 @@ import webview
 # 설정값 (필요하면 자유롭게 바꿔도 되는 값들)
 # ============================================================================
 
-# 창 제목 표시줄에 보이는 이름
-APP_TITLE = "띵타이쿤 가격 계산기"
+# 창 제목 표시줄/메시지 상자에 보이는 이름
+APP_TITLE = "띵 에이전트"
 
 # %APPDATA% 아래에 만들어질 앱 데이터 폴더 이름 (state.json, 로그, WebView 프로필이 여기 저장됨)
-# 주의: 바꾸면 기존 사용자의 저장 데이터를 못 찾게 됨
-APP_DIR_NAME = "DdingTycoonCalc"
+# 주의: 바꾸면 기존 사용자의 저장 데이터를 못 찾게 됨 (바꿀 거면 아래 이전 로직도 같이 손봐야 함)
+APP_DIR_NAME = "DdingAgent"
+
+# 옛 이름(띵타이쿤 가격 계산기, v1.0.0) 시절의 데이터 폴더 이름.
+# 새 폴더에 데이터가 없으면 시작할 때 이 폴더의 내용을 새 폴더로 복사해 옴 (migrate_legacy_data_dir)
+LEGACY_APP_DIR_NAME = "DdingTycoonCalc"
+
+# 이전(복사)을 마친 뒤 옛 폴더에 남기는 표시 파일 이름. 이 파일이 있으면 다시 복사하지 않음
+MIGRATION_MARKER_FILE_NAME = "MIGRATED_TO_DdingAgent.txt"
+
+# 옛 폴더를 복사할 때 건너뛸 하위 폴더 이름들 (WebView2 캐시류 — 없어도 자동으로 다시 만들어지는 것들)
+MIGRATION_SKIP_DIR_NAMES = frozenset({
+    "Cache", "Code Cache", "GPUCache", "DawnCache", "DawnGraphiteCache", "DawnWebGPUCache",
+    "GrShaderCache", "GraphiteDawnCache", "ShaderCache", "Crashpad",
+})
 
 # 처음 열릴 때 창 크기 (가로, 세로 픽셀)
 WINDOW_WIDTH = 1100
@@ -104,10 +125,14 @@ MAX_IMPORT_FILE_BYTES = 20 * 1024 * 1024
 # 파일 대화상자에 표시할 파일 형식 필터 (pywebview 형식: '설명 (*.확장자)')
 JSON_FILE_TYPES = ("JSON 파일 (*.json)", "모든 파일 (*.*)")
 
-# 개발/테스트용 환경변수 이름들
+# 개발/테스트용 환경변수 이름들 (옛 이름 시절의 DTC_* 이름을 호환을 위해 그대로 사용)
 ENV_DEBUG = "DTC_DEBUG"        # "1" 이면 개발자 도구 + 디버그 로그
 ENV_WEB_DIR = "DTC_WEB_DIR"    # 띄울 웹 폴더 경로 덮어쓰기
 ENV_DATA_DIR = "DTC_DATA_DIR"  # 데이터(state.json) 폴더 경로 덮어쓰기
+
+# 위 환경변수의 새 이름 접두어. 예: DTC_DEBUG 대신 DDA_DEBUG 도 받음 (둘 다 있으면 DTC_* 우선)
+ENV_PREFIX_LEGACY = "DTC_"
+ENV_PREFIX_ALIAS = "DDA_"
 
 # WebView2 런타임이 없을 때 안내할 다운로드 주소
 WEBVIEW2_DOWNLOAD_URL = "https://developer.microsoft.com/microsoft-edge/webview2/"
@@ -135,9 +160,20 @@ SELFTEST_FLAG = "--selftest"
 log = logging.getLogger("dtc")
 
 
+def env_value(name: str) -> str:
+    """
+    환경변수 값(앞뒤 공백 제거). 없으면 "".
+    DTC_* 이름이 비어 있으면 같은 뜻의 DDA_* 이름(예: DTC_DEBUG -> DDA_DEBUG)도 확인.
+    """
+    value = os.environ.get(name, "").strip()
+    if not value and name.startswith(ENV_PREFIX_LEGACY):
+        value = os.environ.get(ENV_PREFIX_ALIAS + name[len(ENV_PREFIX_LEGACY):], "").strip()
+    return value
+
+
 def is_debug() -> bool:
-    """DTC_DEBUG 환경변수가 1/true/yes 이면 디버그 모드."""
-    return os.environ.get(ENV_DEBUG, "").strip().lower() in ("1", "true", "yes", "on")
+    """DTC_DEBUG(또는 DDA_DEBUG) 환경변수가 1/true/yes 이면 디버그 모드."""
+    return env_value(ENV_DEBUG).lower() in ("1", "true", "yes", "on")
 
 
 def resource_dir() -> str:
@@ -153,22 +189,26 @@ def resource_dir() -> str:
 
 def web_dir() -> str:
     """웹 앱 폴더. DTC_WEB_DIR 가 있으면 그걸 우선 사용 (테스트 페이지용)."""
-    override = os.environ.get(ENV_WEB_DIR, "").strip()
+    override = env_value(ENV_WEB_DIR)
     if override:
         return os.path.abspath(override)
     return os.path.join(resource_dir(), WEB_DIR_NAME)
 
 
+def appdata_base() -> str:
+    """%APPDATA% 폴더 (환경변수가 없으면 홈\\AppData\\Roaming)."""
+    return os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
+
+
 def data_dir() -> str:
     """
-    사용자 데이터 폴더: %APPDATA%\\DdingTycoonCalc
+    사용자 데이터 폴더: %APPDATA%\\DdingAgent
     (DTC_DATA_DIR 가 있으면 그 경로 사용)
     """
-    override = os.environ.get(ENV_DATA_DIR, "").strip()
+    override = env_value(ENV_DATA_DIR)
     if override:
         return os.path.abspath(override)
-    base = os.environ.get("APPDATA") or os.path.join(os.path.expanduser("~"), "AppData", "Roaming")
-    return os.path.join(base, APP_DIR_NAME)
+    return os.path.join(appdata_base(), APP_DIR_NAME)
 
 
 def ensure_dir(path: str) -> str:
@@ -189,11 +229,126 @@ def documents_dir() -> str:
 
 
 # ============================================================================
+# 옛 데이터 폴더 이전 (v1.1.0: 띵타이쿤 가격 계산기 -> 띵 에이전트 이름 변경)
+# ============================================================================
+
+# 로그 파일을 열기 전에 생긴 메시지 (레벨, 내용). setup_logging 이 로그 파일을 연 뒤 한꺼번에 기록함
+_startup_messages = []
+
+
+def _copy_tree_without_overwrite(src_root: str, dst_root: str, skip_top_files) -> tuple:
+    """
+    src_root 아래 파일을 dst_root 로 같은 구조로 복사. (복사한 개수, 실패한 개수) 를 돌려줌.
+    - dst 에 이미 있는 파일은 덮어쓰지 않음 (새 폴더에 먼저 생긴 파일 보호)
+    - MIGRATION_SKIP_DIR_NAMES 에 있는 캐시 폴더는 건너뜀
+    - skip_top_files: 맨 위 폴더에서 건너뛸 파일 이름들 (state.json 은 따로 마지막에 복사, 표시 파일 제외 등)
+    - 파일 하나 복사에 실패해도 멈추지 않고 나머지를 계속 복사
+    """
+    copied = failed = 0
+    for cur, dirs, files in os.walk(src_root):
+        dirs[:] = [d for d in dirs if d not in MIGRATION_SKIP_DIR_NAMES]
+        rel = os.path.relpath(cur, src_root)
+        dst_dir = dst_root if rel == "." else os.path.join(dst_root, rel)
+        for name in files:
+            if rel == "." and name in skip_top_files:
+                continue
+            dst = os.path.join(dst_dir, name)
+            if os.path.exists(dst):
+                continue
+            try:
+                os.makedirs(dst_dir, exist_ok=True)
+                shutil.copy2(os.path.join(cur, name), dst)
+                copied += 1
+            except Exception as e:  # noqa: BLE001  (잠긴 파일 등 — 캐시/프로필 파일은 없어도 됨)
+                failed += 1
+                _startup_messages.append((logging.WARNING, "이전 중 파일 복사 실패 (건너뜀): %s (%s)"
+                                          % (os.path.join(cur, name), e)))
+    return copied, failed
+
+
+def _files_equal(a: str, b: str) -> bool:
+    """두 파일의 내용이 바이트 단위로 같은지."""
+    with open(a, "rb") as fa, open(b, "rb") as fb:
+        return fa.read() == fb.read()
+
+
+def migrate_legacy_data_dir() -> bool:
+    """
+    옛 데이터 폴더(%APPDATA%\\DdingTycoonCalc)의 내용을 새 폴더(%APPDATA%\\DdingAgent)로 복사.
+    데이터 폴더를 건드리는 다른 코드(로그, 저장 등)보다 먼저 호출해야 함. 복사했으면 True.
+
+    복사하는 조건 (모두 만족할 때만)
+      - DTC_DATA_DIR(또는 DDA_DATA_DIR) 로 데이터 폴더를 따로 지정하지 않았음
+      - 옛 폴더가 있고, 그 안에 표시 파일(MIGRATED_TO_DdingAgent.txt)이 없음
+      - 새 폴더에 state.json 이 아직 없음 (새 폴더의 데이터를 절대 덮어쓰지 않음)
+
+    복사 방법
+      1) state.json 을 뺀 나머지(state.bak.json, app.log, WebView 프로필)를 먼저 복사 (캐시 폴더 제외, 기존 파일 덮어쓰기 안 함)
+      2) state.json 은 맨 마지막에 임시 이름으로 복사 -> 내용 비교 -> 진짜 이름으로 바꿈
+         (중간에 꺼져도 반쯤 복사된 state.json 이 남지 않음. state.json 이 생겼다 = 이전 완료)
+      3) 옛 폴더에 표시 파일을 남김. 옛 폴더와 그 안의 파일은 지우거나 바꾸지 않음 (안전을 위해 복사만)
+
+    어떤 오류가 나도 예외를 밖으로 던지지 않음 (이전에 실패해도 앱은 그대로 시작해야 함)
+    """
+    try:
+        if env_value(ENV_DATA_DIR):
+            return False  # 데이터 폴더를 직접 지정한 경우 (테스트 등): 이전하지 않음
+        base = appdata_base()
+        old_dir = os.path.join(base, LEGACY_APP_DIR_NAME)
+        new_dir = os.path.join(base, APP_DIR_NAME)
+        if not os.path.isdir(old_dir):
+            return False
+        marker = os.path.join(old_dir, MIGRATION_MARKER_FILE_NAME)
+        if os.path.exists(marker):
+            return False
+        new_state = os.path.join(new_dir, STATE_FILE_NAME)
+        if os.path.isfile(new_state):
+            _startup_messages.append((logging.INFO, "새 데이터 폴더에 이미 %s 이 있어 옛 폴더 이전을 건너뜀 (%s)"
+                                      % (STATE_FILE_NAME, old_dir)))
+            return False
+
+        _startup_messages.append((logging.INFO, "옛 데이터 폴더 이전 시작: %s -> %s" % (old_dir, new_dir)))
+        os.makedirs(new_dir, exist_ok=True)
+
+        # 1) state.json 을 뺀 나머지 복사
+        copied, failed = _copy_tree_without_overwrite(
+            old_dir, new_dir, skip_top_files={STATE_FILE_NAME, MIGRATION_MARKER_FILE_NAME})
+
+        # 2) state.json 은 마지막에 (임시 이름 -> 내용 확인 -> 교체)
+        old_state = os.path.join(old_dir, STATE_FILE_NAME)
+        if os.path.isfile(old_state):
+            tmp = new_state + ".migrating"
+            shutil.copy2(old_state, tmp)
+            if not _files_equal(old_state, tmp):
+                os.remove(tmp)
+                raise IOError("복사한 %s 내용이 원본과 다름" % STATE_FILE_NAME)
+            os.replace(tmp, new_state)
+            copied += 1
+
+        # 3) 옛 폴더에 표시 파일 남기기 (실패해도 새 폴더에 state.json 이 있으므로 다시 복사되지 않음)
+        try:
+            with open(marker, "w", encoding="utf-8") as f:
+                f.write("이 폴더의 데이터는 '띵 에이전트'(예전 이름: 띵타이쿤 가격 계산기)의 새 데이터 폴더로 복사되었습니다.\n"
+                        "새 폴더: %s\n"
+                        "이 폴더는 백업으로 남겨 둔 것이며, 새 폴더에서 잘 동작하는 것을 확인했다면 지워도 됩니다.\n"
+                        % new_dir)
+        except Exception as e:  # noqa: BLE001
+            _startup_messages.append((logging.WARNING, "이전 표시 파일을 쓰지 못함: %s (%s)" % (marker, e)))
+
+        _startup_messages.append((logging.INFO, "옛 데이터 폴더 이전 완료: 파일 %d개 복사, %d개 실패 (옛 폴더는 그대로 둠)"
+                                  % (copied, failed)))
+        return True
+    except Exception as e:  # noqa: BLE001
+        _startup_messages.append((logging.ERROR, "옛 데이터 폴더 이전 실패 (앱은 계속 실행): %s" % e))
+        return False
+
+
+# ============================================================================
 # 로깅 / 콘솔 없는 exe 대비
 # ============================================================================
 
 def setup_logging() -> None:
-    """%APPDATA%\\DdingTycoonCalc\\app.log 에 로그 기록 (다른 PC 에서 문제가 생겼을 때 원인 확인용)."""
+    """%APPDATA%\\DdingAgent\\app.log 에 로그 기록 (다른 PC 에서 문제가 생겼을 때 원인 확인용)."""
     # --windowed exe 에서는 sys.stdout/stderr 가 None 이라 print 하는 라이브러리가 죽을 수 있음 -> devnull 로 대체
     if sys.stdout is None:
         sys.stdout = open(os.devnull, "w", encoding="utf-8")
@@ -219,6 +374,11 @@ def setup_logging() -> None:
         console = logging.StreamHandler(sys.stderr)
         console.setFormatter(fmt)
         root.addHandler(console)
+
+    # 로그 파일을 열기 전에 쌓아 둔 메시지(옛 데이터 폴더 이전 결과 등)를 이제 기록
+    while _startup_messages:
+        level, message = _startup_messages.pop(0)
+        log.log(level, "%s", message)
 
 
 # ============================================================================
@@ -425,7 +585,7 @@ class Api:
 
     def save_state(self, json_string):
         """
-        상태 JSON 문자열을 %APPDATA%\\DdingTycoonCalc\\state.json 에 저장. 성공 시 True.
+        상태 JSON 문자열을 %APPDATA%\\DdingAgent\\state.json 에 저장. 성공 시 True.
         - 올바른 JSON 이 아니면 저장하지 않고 False (기존 데이터 보호)
         - 기존 state.json 은 state.bak.json 으로 1개 보관
         - 원자적 쓰기(임시파일 -> 교체)라 저장 중 꺼져도 파일이 깨지지 않음
@@ -648,6 +808,8 @@ def run(func=None, args=None):
     앱 실행. func 를 주면 GUI 루프 시작 직후 별도 스레드에서 func(*args) 실행
     (자동 테스트용 콜백 인자. 일반 실행에서는 None)
     """
+    # 데이터 폴더를 건드리기 전에 옛 폴더(%APPDATA%\DdingTycoonCalc) 이전부터 (결과는 setup_logging 이 기록)
+    migrate_legacy_data_dir()
     setup_logging()
     log.info("시작 (frozen=%s, resource_dir=%s)", getattr(sys, "frozen", False), resource_dir())
 
@@ -681,7 +843,7 @@ def run(func=None, args=None):
             args,
             gui="edgechromium",
             debug=is_debug(),
-            # private_mode=False + storage_path: WebView2 프로필을 %APPDATA%\DdingTycoonCalc\webview 에
+            # private_mode=False + storage_path: WebView2 프로필을 %APPDATA%\DdingAgent\webview 에
             # 고정해서 임시폴더에 쓰레기가 쌓이지 않게 함. (진짜 저장은 state.json API 가 담당)
             private_mode=False,
             storage_path=storage,
@@ -694,7 +856,7 @@ def run(func=None, args=None):
 
 
 def start_recognizer(api: Api, pusher: JsPusher) -> None:
-    """게임 화면 인식 엔진 + 전역 단축키 시작. 실패해도 앱(계산기)은 그대로 동작."""
+    """게임 화면 인식 엔진 + 전역 단축키 시작. 실패해도 앱(가격 계산 등)은 그대로 동작."""
     try:
         from recognizer import CaptureEngine, HotkeyManager
     except Exception as e:
@@ -743,6 +905,7 @@ def stop_recognizer(api: Api, pusher: JsPusher) -> None:
 
 def run_selftest(argv) -> int:
     """--selftest <png> [--out 결과.json] [--items 목록.json] : GUI 없이 판독만 하고 종료."""
+    migrate_legacy_data_dir()  # 로그 폴더를 만들기 전에 옛 데이터 폴더 이전 (run 과 같은 순서)
     setup_logging()
     from recognizer import selftest, win32
     win32.set_process_dpi_aware()
